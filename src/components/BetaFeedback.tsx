@@ -101,7 +101,7 @@ const BetaFeedback = () => {
             <div>
               <h3 className="font-semibold text-lg mb-2">Benvenuto nel Beta Program!</h3>
               <p className="text-muted-foreground mb-4">
-                Stai testando BookScan AI in anteprima. Il tuo feedback è prezioso per migliorare l'esperienza di tutti gli utenti.
+                Stai testando BookSnap AI in anteprima. Il tuo feedback è prezioso per migliorare l'esperienza di tutti gli utenti.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">Versione Beta 1.0</Badge>

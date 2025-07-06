@@ -1,18 +1,74 @@
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { updateBookInLibrary, deleteBookFromLibrary, Book } from '@/services/database'; // <-- CORREZIONE QUI
-import { Card, CardContent } from "@/components/ui/card";
+import { Book, updateBookInLibrary, deleteBookFromLibrary } from '../services/database';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks/use-toast';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Search, Star, Trash2, Edit3, BookOpenCheck, Glasses, BookCopy } from "lucide-react";
-import { Loader2 } from 'lucide-react';
+import { Library, Search, Star, Edit3, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
+
+// --- Helper Components ---
+
+// Componente per lo scheletro di caricamento
+const LibrarySkeleton = () => (
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    {Array.from({ length: 10 }).map((_, i) => (
+      <div key={i} className="space-y-2">
+        <Skeleton className="h-48 w-full rounded-md" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    ))}
+  </div>
+);
+
+// Componente per lo stato di libreria vuota
+const EmptyLibrary = () => (
+  <div className="flex flex-col items-center justify-center text-center py-20">
+    <Library className="w-16 h-16 text-gray-300 mb-4" />
+    <h3 className="text-xl font-semibold text-gray-800">La tua libreria è vuota</h3>
+    <p className="text-gray-500 mt-2">Inizia a scansionare per aggiungere i tuoi libri!</p>
+  </div>
+);
+
+// Componente per la copertina di un singolo libro
+const BookCover = ({ book, onSelect }) => (
+    <div 
+        className="group relative cursor-pointer"
+        onClick={() => onSelect(book)}
+    >
+        <img 
+            src={book.thumbnail} 
+            alt={`Copertina di ${book.title}`}
+            className="w-full h-auto object-cover rounded-md shadow-md group-hover:shadow-xl group-hover:scale-105 transition-all duration-200"
+        />
+         <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-md">
+            <div className="text-center text-white p-2">
+                <h4 className="font-bold text-sm line-clamp-2">{book.title}</h4>
+                <p className="text-xs line-clamp-1">{book.authors?.join(', ')}</p>
+            </div>
+        </div>
+    </div>
+);
+
+
+// --- Main Component ---
 
 interface PersonalLibraryProps {
     books: Book[];
@@ -25,7 +81,14 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({ books, isLoadi
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editData, setEditData] = useState({ userRating: 0, userReview: '', readingStatus: 'to-read' });
+  
+  // Dati per il form di modifica, inizializzati quando si apre il dialogo
+  const [editData, setEditData] = useState<{
+    userRating: number;
+    userReview: string;
+    readingStatus: 'to-read' | 'reading' | 'read';
+  } | null>(null);
+
 
   const filteredBooks = books.filter(book => 
     book.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -37,129 +100,139 @@ export const PersonalLibrary: React.FC<PersonalLibraryProps> = ({ books, isLoadi
     setEditData({
       userRating: book.userRating || 0,
       userReview: book.userReview || '',
-      readingStatus: book.readingStatus || 'to-read'
+      readingStatus: (book.readingStatus as 'to-read' | 'reading' | 'read') || 'to-read'
     });
     setIsDialogOpen(true);
   };
   
   const handleBookUpdate = async () => {
-    if (!user || !selectedBook || !selectedBook.id) return;
+    if (!user || !selectedBook || !selectedBook.id || !editData) return;
     try {
       await updateBookInLibrary(user.uid, selectedBook.id, { 
         ...editData,
         reviewDate: new Date().toISOString() 
       });
-      toast({ title: "Libro aggiornato!" });
+      toast({ title: "Libro aggiornato con successo!" });
       setIsDialogOpen(false);
+      setSelectedBook(null);
+      setEditData(null);
     } catch (e) {
-      toast({ title: "Errore durante l'aggiornamento", variant: "destructive" });
+      toast({ title: "Errore durante l'aggiornamento", description: "Riprova più tardi.", variant: "destructive" });
     }
   };
 
-  const handleDeleteBook = async (bookToDelete: Book) => {
-    if (!user || !bookToDelete.id) return;
+  const handleDeleteBook = async () => {
+    if (!user || !selectedBook || !selectedBook.id) return;
     try {
-      await deleteBookFromLibrary(user.uid, bookToDelete.id);
-      toast({ title: "Libro rimosso.", variant: "destructive" });
+      await deleteBookFromLibrary(user.uid, selectedBook.id);
+      toast({ title: "Libro rimosso dalla libreria.", variant: "destructive" });
+      setIsDialogOpen(false);
+      setSelectedBook(null);
     } catch (e) {
-      toast({ title: "Errore durante la rimozione", variant: "destructive" });
+      toast({ title: "Errore durante la rimozione", description: "Riprova più tardi.", variant: "destructive" });
     }
   };
   
   const renderStars = (rating: number, interactive = false, onStarClick: ((rating: number) => void) | null = null) => (
-    Array.from({ length: 5 }, (_, i) => <Star key={i} className={`w-5 h-5 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} ${interactive ? 'cursor-pointer' : ''}`} onClick={interactive && onStarClick ? () => onStarClick(i + 1) : undefined} />)
+    Array.from({ length: 5 }, (_, i) => <Star key={i} className={`w-6 h-6 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} ${interactive ? 'cursor-pointer transition-transform hover:scale-110' : ''}`} onClick={interactive && onStarClick ? () => onStarClick(i + 1) : undefined} />)
   );
-  
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case 'read': return <Badge className="bg-green-100 text-green-800">Letto</Badge>;
-      case 'reading': return <Badge className="bg-blue-100 text-blue-800">In lettura</Badge>;
-      default: return <Badge variant="secondary">Da leggere</Badge>;
-    }
-  };
-
-  const booksByStatus = {
-    'reading': filteredBooks.filter(book => book.readingStatus === 'reading'),
-    'to-read': filteredBooks.filter(book => (book.readingStatus || 'to-read') === 'to-read'),
-    'read': filteredBooks.filter(book => book.readingStatus === 'read'),
-  };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center p-10"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+    return <LibrarySkeleton />;
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">La Mia Libreria</h1>
-          <p className="text-muted-foreground">{books.length} libri</p>
-      </div>
-      <div className="sticky top-16 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm py-2 z-10 -mx-4 px-4">
+    <div className="space-y-6">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-          <Input placeholder="Cerca nella tua libreria..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-12 text-base" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input 
+                placeholder="Cerca per titolo o autore..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="pl-10 h-12 text-base border-gray-300 focus:ring-emerald-500 focus:border-emerald-500" 
+            />
         </div>
-      </div>
-      <Tabs defaultValue="reading" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="reading"><Glasses className="w-4 h-4 mr-1 sm:mr-2"/> In Lettura</TabsTrigger>
-          <TabsTrigger value="to-read"><BookCopy className="w-4 h-4 mr-1 sm:mr-2"/> Da Leggere</TabsTrigger>
-          <TabsTrigger value="read"><BookOpenCheck className="w-4 h-4 mr-1 sm:mr-2"/> Letti</TabsTrigger>
-        </TabsList>
-        {Object.entries(booksByStatus).map(([status, booksInStatus]) => (
-          <TabsContent key={status} value={status} className="mt-4 space-y-4">
-            {booksInStatus.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">Nessun libro in questa sezione.</div>
-            ) : (
-              booksInStatus.map(book => (
-                <Card key={book.id} className="shadow-md">
-                  <CardContent className="p-4 flex gap-4">
-                    <img src={book.thumbnail} alt={book.title} className="w-20 h-28 object-cover rounded-md flex-shrink-0" />
-                    <div className="flex-1 space-y-1">
-                      <h3 className="font-semibold line-clamp-2">{book.title}</h3>
-                      <p className="text-sm text-muted-foreground">{book.authors?.join(', ')}</p>
-                      <div className="flex items-center gap-1">{book.userRating && book.userRating > 0 ? renderStars(book.userRating) : null}</div>
-                      {getStatusBadge(book.readingStatus)}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <Button size="icon" variant="outline" onClick={() => openEditDialog(book)}><Edit3 className="w-4 h-4"/></Button>
-                        <Button size="icon" variant="destructive" onClick={() => handleDeleteBook(book)}><Trash2 className="w-4 h-4"/></Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+
+      {filteredBooks.length === 0 ? (
+        <EmptyLibrary />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+          {filteredBooks.map(book => (
+            <BookCover key={book.id} book={book} onSelect={openEditDialog} />
+          ))}
+        </div>
+      )}
+
+      {/* Dialogo per visualizzare e modificare i dettagli del libro */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-         <DialogContent>
+         <DialogContent className="max-w-md">
             <DialogHeader>
-                <DialogTitle>Modifica "{selectedBook?.title}"</DialogTitle>
-                <DialogDescription>Aggiorna lo stato di lettura, la tua valutazione e le tue note.</DialogDescription>
+                <div className="flex gap-4 items-start">
+                    <img src={selectedBook?.thumbnail} alt={selectedBook?.title} className="w-24 h-auto object-cover rounded-md shadow-sm" />
+                    <div className="space-y-1">
+                        <DialogTitle className="text-2xl font-bold">{selectedBook?.title}</DialogTitle>
+                        <DialogDescription>{selectedBook?.authors?.join(', ')}</DialogDescription>
+                    </div>
+                </div>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-                <div>
-                    <Label>Stato di lettura</Label>
-                    <Select value={editData.readingStatus} onValueChange={(value) => setEditData(prev => ({...prev, readingStatus: value}))}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="to-read">Da leggere</SelectItem>
-                            <SelectItem value="reading">In lettura</SelectItem>
-                            <SelectItem value="read">Letto</SelectItem>
-                        </SelectContent>
-                    </Select>
+            {editData && (
+                 <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="readingStatus" className="font-semibold">Stato di lettura</Label>
+                        <Select 
+                            value={editData.readingStatus} 
+                            onValueChange={(value: 'to-read' | 'reading' | 'read') => setEditData(prev => prev ? ({...prev, readingStatus: value}) : null)}
+                        >
+                            <SelectTrigger id="readingStatus"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="to-read">Da leggere</SelectItem>
+                                <SelectItem value="reading">In lettura</SelectItem>
+                                <SelectItem value="read">Letto</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label className="font-semibold">La tua valutazione</Label>
+                        <div className="flex gap-1 mt-2">{renderStars(editData.userRating, true, (rating) => setEditData(prev => prev ? ({...prev, userRating: rating}) : null))}</div>
+                    </div>
+                    <div>
+                        <Label htmlFor="userReview" className="font-semibold">La tua recensione/note</Label>
+                        <Textarea 
+                            id="userReview"
+                            value={editData.userReview} 
+                            onChange={(e) => setEditData(prev => prev ? ({...prev, userReview: e.target.value}) : null)} 
+                            placeholder="Scrivi qui le tue impressioni..."
+                            className="mt-1"
+                        />
+                    </div>
                 </div>
-                <div>
-                    <Label>La tua valutazione</Label>
-                    <div className="flex gap-1 mt-2">{renderStars(editData.userRating, true, (rating) => setEditData(prev => ({...prev, userRating: rating})))}</div>
-                </div>
-                <div>
-                    <Label>La tua recensione/note</Label>
-                    <Textarea value={editData.userReview} onChange={(e) => setEditData(prev => ({...prev, userReview: e.target.value}))} placeholder="Scrivi qui le tue impressioni..."/>
-                </div>
-            </div>
-            <Button onClick={handleBookUpdate} className="w-full">Salva Modifiche</Button>
+            )}
+            <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:justify-between">
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full sm:w-auto">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Elimina
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Sei assolutamente sicuro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Questa azione non può essere annullata. Rimuoverà permanentemente il libro dalla tua libreria.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteBook}>Continua</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <Button onClick={handleBookUpdate} className="w-full sm:w-auto">
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Salva Modifiche
+                </Button>
+            </DialogFooter>
          </DialogContent>
       </Dialog>
     </div>

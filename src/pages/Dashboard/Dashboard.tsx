@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { Book, UserProfile } from '@/services/database';
-import { BottomNavBar } from '@/components/BottomNavBar';
-import { Header } from '@/components/Header';
-import { PersonalLibrary } from '@/components/PersonalLibrary';
-import { ProfilePage } from '@/pages/Profile/Index';
-import Statistics from '@/components/Statistics';
-import BookExport from '@/components/BookExport';
-import BetaFeedback from '@/components/BetaFeedback';
-import LazyBookstoreMap from '@/components/LazyBookstoreMap';
+import { Book, UserProfile } from '../../services/database';
+import { BottomNavBar } from '../../components/BottomNavBar';
+import { Header } from '../../components/Header';
+import { PersonalLibrary } from '../../components/PersonalLibrary';
+import { ProfilePage } from '../Profile/Index';
+import Statistics from '../../components/Statistics';
+import BookExport from '../../components/BookExport';
+import BetaFeedback from '../../components/BetaFeedback';
+import LazyBookstoreMap from '../../components/LazyBookstoreMap';
 import { Loader2 } from 'lucide-react';
-
-// --- LA CORREZIONE È QUI ---
-import { BookScanner } from '@/components/BookScanner'; // Aggiunte le parentesi graffe
+import { BookScanner } from '../../components/BookScanner';
 
 const Dashboard = () => {
   const { user, userProfile } = useAuth();
@@ -29,6 +27,7 @@ const Dashboard = () => {
         setIsLoadingBooks(false);
         return;
     }
+    // Ordina i libri per data di scansione, dal più recente al più vecchio
     const booksQuery = query(collection(db, 'users', user.uid, 'books'), orderBy('scannedAt', 'desc'));
     const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
       const booksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Book[];
@@ -57,14 +56,20 @@ const Dashboard = () => {
         return <ProfilePage books={libraryBooks} />;
       case 'scanner':
       default:
+        // Passiamo le prop necessarie a BookScanner
         return <BookScanner userPreferences={userProfile} libraryBooks={libraryBooks} />;
     }
   };
 
   return (
-    <div className="pb-20 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    // Rimosso padding-top (pt-20) per eliminare lo spazio extra
+    <div className="pb-20 bg-[#F8F9FA] dark:bg-gray-900 min-h-screen">
+      
+      {/* L'Header ora è sempre visibile, non più condizionale. */}
+      {/* Sarà l'Header stesso a gestire il titolo da mostrare. */}
       <Header setActiveTab={setActiveTab} />
-      <main className="container mx-auto px-0 sm:px-4 mt-4">
+      
+      <main className="container mx-auto px-4 py-4"> {/* Aggiunto un po' di padding verticale per distanziare l'header */}
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -81,6 +86,8 @@ const Dashboard = () => {
           </motion.div>
         </AnimatePresence>
       </main>
+      
+      {/* La barra di navigazione inferiore rimane invariata */}
       <BottomNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );

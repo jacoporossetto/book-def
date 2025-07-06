@@ -177,7 +177,7 @@ const BookExport: React.FC<BookExportProps> = ({ books }) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>La Mia Libreria - BookScan AI</title>
+    <title>La Mia Libreria - BookSnap</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
@@ -192,7 +192,7 @@ const BookExport: React.FC<BookExportProps> = ({ books }) => {
 <body>
     <div class="header">
         <h1>La Mia Libreria</h1>
-        <p>Esportato da BookScan AI il ${new Date().toLocaleDateString('it-IT')}</p>
+        <p>Esportato da BookSnap il ${new Date().toLocaleDateString('it-IT')}</p>
     </div>
     
     <div class="export-info">

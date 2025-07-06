@@ -1,99 +1,149 @@
-import { CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Star, ThumbsUp, ThumbsDown, Sparkles, BookHeart, Info, BrainCircuit } from "lucide-react";
+import { Star, Check, X, BookOpen, ListChecks, Paperclip, Bookmark } from "lucide-react";
 
-// Funzione helper per renderizzare le stelle, ora più flessibile
-const renderStars = (rating: number, size = 'w-5 h-5') => {
-    if (typeof rating !== 'number') return null;
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-        stars.push(<Star key={i} className={`${size} ${i <= Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />);
-    }
-    return stars;
+// Funzione helper per renderizzare le stelle in modo dinamico
+// Calcola la parte intera e decimale per una stella parzialmente riempita
+const renderStars = (rating: number, size = 'w-6 h-6') => {
+  if (typeof rating !== 'number' || isNaN(rating)) return null;
+
+  const fullStars = Math.floor(rating);
+  const partialStarPercentage = (rating % 1) * 100;
+  const emptyStars = 5 - fullStars - (partialStarPercentage > 0 ? 1 : 0);
+  const stars = [];
+
+  for (let i = 0; i < fullStars; i++) {
+    stars.push(<Star key={`full-${i}`} className={`${size} text-yellow-400 fill-yellow-400`} />);
+  }
+
+  if (partialStarPercentage > 0) {
+    stars.push(
+      <div key="partial" className="relative">
+        <Star className={`${size} text-gray-300`} />
+        <div className="absolute top-0 left-0 h-full overflow-hidden" style={{ width: `${partialStarPercentage}%` }}>
+          <Star className={`${size} text-yellow-400 fill-yellow-400`} />
+        </div>
+      </div>
+    );
+  }
+
+  for (let i = 0; i < emptyStars; i++) {
+    stars.push(<Star key={`empty-${i}`} className={`${size} text-gray-300`} />);
+  }
+
+  return stars;
 };
 
+
+// Componente per una singola riga di dettaglio del punteggio, ora con la motivazione
+const ScoreDetailRow = ({ icon: Icon, label, score, reason }) => (
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <Icon className="w-5 h-5 text-gray-500" />
+                <span className="font-medium text-gray-800">{label}</span>
+            </div>
+            <span className="font-bold text-lg" style={{color: '#147979'}}>{score?.toFixed(1)}</span>
+        </div>
+        <p className="text-sm text-gray-500 mt-2 italic">"{reason}"</p>
+    </div>
+);
+
+
 export const BookRecommendation = ({ book, onAccept, onReject }) => {
+  if (!book) return null; // Gestisce il caso in cui il libro non sia ancora caricato
+
   const analysis = book?.analysis;
   const details = analysis?.rating_details;
   const descriptionToShow = analysis?.description_used || book.description;
 
   return (
-    <CardContent className="space-y-4 p-0">
-      {/* SEZIONE INTESTAZIONE LIBRO */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4">
-        <img src={book.thumbnail} alt={book.title} className="w-28 sm:w-32 h-auto object-cover rounded-md shadow-lg mx-auto sm:mx-0 flex-shrink-0" />
-        <div className="flex-1 space-y-1 text-center sm:text-left">
-          <h2 className="text-2xl font-bold leading-tight">{book.title}</h2>
-          <p className="text-lg text-muted-foreground">di {book.authors?.join(', ')}</p>
-          <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
-             <div className="flex">{renderStars(book.averageRating)}</div>
-             <span className="text-sm text-muted-foreground">({book.ratingsCount || 0} voti)</span>
-          </div>
+    // Contenitore principale con sfondo e padding
+    <div className="bg-[#F8F9FA] p-4 font-sans">
+      <div className="max-w-md mx-auto">
+        {/* Sezione Intestazione Libro */}
+        <div className="text-center pt-4 pb-8">
+            <img 
+                src={book.thumbnail} 
+                alt={`Copertina di ${book.title}`} 
+                className="w-40 h-auto object-cover rounded-md shadow-2xl mx-auto mb-6" 
+            />
+            <h2 className="text-3xl font-bold text-gray-800 leading-tight">{book.title}</h2>
+            <p className="text-lg text-gray-500 mt-1">di {book.authors?.join(', ')}</p>
+            <div className="flex items-center justify-center gap-2 mt-3">
+                <div className="flex">{renderStars(book.averageRating)}</div>
+                <span className="text-base text-gray-400 font-medium">{book.averageRating?.toFixed(1)}</span>
+            </div>
+        </div>
+
+        {/* Sistema a Schede */}
+        <Tabs defaultValue="affinity" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-200/70 rounded-lg p-1">
+            <TabsTrigger value="affinity" className="data-[state=active]:bg-white data-[state=active]:shadow-md">Analisi di Affinità</TabsTrigger>
+            <TabsTrigger value="info" className="data-[state=active]:bg-white data-[state=active]:shadow-md">Scheda Libro</TabsTrigger>
+          </TabsList>
+
+          {/* Contenuto Tab Analisi di Affinità */}
+          <TabsContent value="affinity" className="pt-6">
+            {!analysis ? (
+              <p className="text-center text-gray-500 py-10">Analisi AI non disponibile.</p>
+            ) : (
+              <div className="space-y-6">
+                <div className="text-center">
+                    <p className="text-sm font-semibold text-gray-500 tracking-wider">PUNTEGGIO DI AFFINITÀ FINALE</p>
+                    <p className="text-8xl font-bold my-2" style={{color: '#147979'}}>{analysis.final_rating?.toFixed(1)}</p>
+                    <div className="flex justify-center">{renderStars(analysis.final_rating, 'h-7 w-7')}</div>
+                    <p className="text-base text-gray-600 mt-3 italic">"{analysis.short_reasoning}"</p>
+                    {analysis.confidence_level && <p className="text-sm text-gray-400 mt-2">Fiducia IA: {analysis.confidence_level}</p>}
+                </div>
+
+                {details && (
+                    <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-800 text-lg text-left">Dettaglio Punteggi</h4>
+                        <ScoreDetailRow icon={ListChecks} label="Trama vs Bio" score={details.plot_affinity?.score} reason={details.plot_affinity?.reason} />
+                        <ScoreDetailRow icon={Paperclip} label="Stile & Vibes" score={details.style_affinity?.score} reason={details.style_affinity?.reason} />
+                        <ScoreDetailRow icon={Bookmark} label="Genere" score={details.genre_affinity?.score} reason={details.genre_affinity?.reason} />
+                    </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+          
+          {/* Contenuto Tab Scheda Libro */}
+          <TabsContent value="info" className="pt-6 text-base space-y-4">
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 space-y-3">
+                <h4 className="font-bold text-lg text-gray-800">Dettagli</h4>
+                <div className="space-y-2 text-sm text-gray-700">
+                    <p><strong>Autore/i:</strong> {book.authors?.join(', ')}</p>
+                    <p><strong>Data Pubblicazione:</strong> {book.publishedDate}</p>
+                    <p><strong>Pagine:</strong> {book.pageCount}</p>
+                    <p><strong>Categorie:</strong> {book.categories?.join(', ')}</p>
+                </div>
+            </div>
+             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 space-y-2">
+                <p className="font-bold text-lg text-gray-800">Descrizione</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{descriptionToShow}</p>
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        {/* Pulsanti di Azione */}
+        <div className="flex gap-4 pt-8">
+          <Button onClick={onAccept} className="flex-1 h-14 text-lg bg-[#28a745] hover:bg-[#218838] shadow-lg">
+              <Check className="w-6 h-6 mr-2" /> Aggiungi
+          </Button>
+          <Button onClick={onReject} variant="outline" className="flex-1 h-14 text-lg bg-white border-gray-300 text-gray-700 hover:bg-gray-50 shadow-lg">
+              <X className="w-6 h-6 mr-2" /> Scarta
+          </Button>
         </div>
       </div>
-
-      {/* SISTEMA A SCHEDE PER ORGANIZZARE LE INFORMAZIONI */}
-      <Tabs defaultValue="analysis" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="analysis"><Sparkles className="w-4 h-4 mr-2"/>Analisi di Affinità</TabsTrigger>
-          <TabsTrigger value="details"><Info className="w-4 h-4 mr-2"/>Scheda Libro</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="analysis" className="mt-4 p-4">
-          {!analysis ? (
-            <p className="text-center text-muted-foreground py-10">Analisi AI non ancora disponibile.</p>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center bg-muted/50 p-4 rounded-xl border">
-                  <p className="text-sm font-semibold text-muted-foreground">PUNTEGGIO AFFINITÀ FINALE</p>
-                  <p className="text-7xl font-bold text-primary my-1">{analysis.final_rating?.toFixed(1)}</p>
-                  <div className="flex justify-center mb-2">{renderStars(analysis.final_rating, 'h-6 w-6')}</div>
-                  <p className="text-base italic text-muted-foreground">"{analysis.short_reasoning}"</p>
-                  {analysis.confidence_level && <Badge variant="outline" className="mt-3">Fiducia IA: {analysis.confidence_level}</Badge>}
-              </div>
-
-              {details && (
-                  <div className="space-y-4">
-                      <h4 className="font-semibold text-center text-lg">Dettaglio Punteggi</h4>
-                      <div className="p-4 border rounded-lg">
-                          <div className="flex justify-between items-center font-medium"><span className="flex items-center gap-2"><BookHeart className="w-4 h-4"/> Trama vs Bio</span> <span className="font-bold">{details.plot_affinity?.score.toFixed(1)}</span></div>
-                          <p className="text-sm text-muted-foreground italic mt-1">"{details.plot_affinity?.reason}"</p>
-                      </div>
-                      <div className="p-4 border rounded-lg">
-                          <div className="flex justify-between items-center font-medium"><span className="flex items-center gap-2"><BrainCircuit className="w-4 h-4"/> Stile & Vibes</span> <span className="font-bold">{details.style_affinity?.score.toFixed(1)}</span></div>
-                          <p className="text-sm text-muted-foreground italic mt-1">"{details.style_affinity?.reason}"</p>
-                      </div>
-                       <div className="p-4 border rounded-lg">
-                          <div className="flex justify-between items-center font-medium"><span className="flex items-center gap-2">📚 Genere</span> <span className="font-bold">{details.genre_affinity?.score.toFixed(1)}</span></div>
-                          <p className="text-sm text-muted-foreground italic mt-1">"{details.genre_affinity?.reason}"</p>
-                      </div>
-                  </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="details" className="mt-4 p-4 text-base space-y-4">
-            <h4 className="font-bold text-lg border-b pb-2">Dettagli del Libro</h4>
-            <div className="space-y-2 text-sm">
-                <p><strong>Autore/i:</strong> {book.authors?.join(', ')}</p>
-                <p><strong>Data Pubblicazione:</strong> {book.publishedDate}</p>
-                <p><strong>Pagine:</strong> {book.pageCount}</p>
-                <p><strong>Categorie:</strong> {book.categories?.join(', ')}</p>
-            </div>
-            <div className="pt-2 space-y-1">
-              <p className="font-semibold">Descrizione Utilizzata per l'Analisi:</p>
-              <p className="text-sm text-muted-foreground leading-relaxed italic p-3 bg-slate-50 dark:bg-slate-800/50 rounded-md">{descriptionToShow}</p>
-            </div>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="flex gap-3 pt-4 border-t p-4">
-        <Button onClick={onAccept} className="flex-1 h-12 text-base"><ThumbsUp className="w-5 h-5 mr-2" /> Aggiungi</Button>
-        <Button onClick={onReject} variant="outline" className="flex-1 h-12 text-base"><ThumbsDown className="w-5 h-5 mr-2" /> Scarta</Button>
-      </div>
-    </CardContent>
+    </div>
   );
 };

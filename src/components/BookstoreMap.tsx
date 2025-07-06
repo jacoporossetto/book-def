@@ -1,77 +1,107 @@
-// File: src/components/BookstoreMap.tsx
-
 import { useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { MapPin } from 'lucide-react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { BookMarked, Navigation } from 'lucide-react';
 
-// Dati delle librerie di Padova
+// Dati di esempio per le librerie indipendenti a Padova
 const bookstores = [
-  ];
+  
+];
 
-// --- SOLUZIONE DEFINITIVA: Utilizziamo Leaflet.js direttamente ---
+// Componente React per l'icona del marker, che verrà convertito in HTML
+const MarkerIcon = () => (
+    <div className="relative flex items-center justify-center">
+        <BookMarked className="w-5 h-5 text-white" strokeWidth={2.5}/>
+    </div>
+);
+
 const BookstoreMap = () => {
-  // Usiamo un 'ref' per ottenere un riferimento al div che conterrà la mappa
   const mapRef = useRef<HTMLDivElement>(null);
-  // Usiamo un ref per tenere traccia dell'istanza della mappa, per evitare di crearla due volte
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  const mapInstanceRef = useRef<any | null>(null); // Usiamo 'any' per evitare problemi di tipo con L dinamico
+  const isMapInitialized = useRef(false);
 
   useEffect(() => {
-    // Eseguiamo questo codice solo una volta, dopo che il componente è stato montato
-    // e solo se il div della mappa esiste e non è già stata creata una mappa
-    if (mapRef.current && !mapInstanceRef.current) {
-        
-      // Creiamo l'icona personalizzata per i marker
-      const icon = new L.Icon({
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-      });
+    if (isMapInitialized.current) return;
+    isMapInitialized.current = true;
 
-      // 1. Creiamo l'istanza della mappa
-      const map = L.map(mapRef.current).setView([45.4064, 11.8768], 15);
-      mapInstanceRef.current = map; // Salviamo l'istanza
+    // Caricamento dinamico del CSS di Leaflet
+    const leafletCss = document.createElement('link');
+    leafletCss.rel = 'stylesheet';
+    leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    leafletCss.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    leafletCss.crossOrigin = '';
+    document.head.appendChild(leafletCss);
 
-      // 2. Aggiungiamo lo strato di mattonelle (la mappa vera e propria)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+    // Caricamento dinamico dello script di Leaflet
+    import('leaflet').then(L => {
+        if (mapRef.current && !mapInstanceRef.current) {
+            
+          // Creiamo l'icona personalizzata del marker in stile Booksnap
+          const customMarkerHtml = renderToStaticMarkup(<MarkerIcon />);
+          const icon = new L.DivIcon({
+              html: `<div style="background-color: #147979; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 2px solid white;">${customMarkerHtml}</div>`,
+              className: '', // Rimuoviamo le classi di default per evitare conflitti di stile
+              iconSize: [40, 40],
+              iconAnchor: [20, 40], // Posiziona la punta del marker correttamente
+              popupAnchor: [0, -40] // Posiziona il popup sopra il marker
+          });
 
-      // 3. Aggiungiamo un marker per ogni libreria
-      bookstores.forEach(store => {
-        L.marker([store.lat, store.lng], { icon })
-          .addTo(map)
-          .bindPopup(`<b>${store.name}</b><br>${store.address}`);
-      });
-    }
+          // Inizializza la mappa centrata su Padova
+          const map = L.map(mapRef.current, { zoomControl: false }).setView([45.408, 11.878], 14);
+          L.control.zoom({ position: 'topright' }).addTo(map);
+          mapInstanceRef.current = map;
 
-    // Funzione di pulizia: quando il componente viene smontato, distruggiamo la mappa
-    // per liberare memoria ed evitare errori
+          // Aggiunge uno strato di mappa con uno stile minimale (CartoDB Voyager)
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+          }).addTo(map);
+
+          // Aggiunge i marker per ogni libreria
+          bookstores.forEach(store => {
+            // --- MODIFICA CHIAVE ---
+            // Creiamo l'URL per la navigazione con Google Maps
+            const encodedAddress = encodeURIComponent(store.address);
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
+            
+            // Creiamo il contenuto HTML per il popup con il pulsante "Naviga"
+            const popupContent = `
+              <div style="font-family: sans-serif; line-height: 1.5; text-align: center;">
+                <h3 style="font-weight: bold; font-size: 16px; margin: 0 0 4px 0;">${store.name}</h3>
+                <p style="margin: 0 0 12px 0; color: #555;">${store.address}</p>
+                <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 8px 16px; background-color: #147979; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
+                  Naviga
+                </a>
+              </div>
+            `;
+
+            L.marker([store.lat, store.lng], { icon })
+              .addTo(map)
+              .bindPopup(popupContent);
+          });
+        }
+    }).catch(error => console.error("Failed to load Leaflet", error));
+    
+    // Funzione di pulizia per distruggere la mappa quando il componente viene smontato
     return () => {
+      if (document.head.contains(leafletCss)) {
+        document.head.removeChild(leafletCss);
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        isMapInitialized.current = false;
       }
     };
-  }, []); // L'array vuoto assicura che questo effetto venga eseguito solo una volta
+  }, []);
 
   return (
-    <div className="p-4">
-      <Card className="shadow-lg border-0">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MapPin className="text-purple-600"/> Librerie Indipendenti a Padova</CardTitle>
-          <CardDescription>Scopri e sostieni le piccole librerie che aderiscono al progetto.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Questo div è il contenitore della nostra mappa */}
-          <div id="map" ref={mapRef} className="h-[calc(100vh-200px)] rounded-lg z-0" />
-        </CardContent>
-      </Card>
-    </div>
+    // Il contenitore della mappa è ora più pulito e si adatta al layout del Dashboard
+    <div 
+        id="map" 
+        ref={mapRef} 
+        className="h-[calc(100vh-150px)] w-full rounded-lg z-0 shadow-inner bg-gray-200" 
+    />
   );
 };
 
