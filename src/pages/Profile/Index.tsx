@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { useAuth } from "@/contexts/AuthContext";
-import { Book } from '@/services/database';
+import { Book, UserProfile } from '@/services/database';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Settings, CheckCircle, BookText } from 'lucide-react';
-import { Label } from "@/components/ui/label"; // <-- ECCO LA RIGA MANCANTE
+// --- CORREZIONE --- Aggiunto DialogTrigger all'importazione
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"; 
+import { Settings, BookText } from 'lucide-react';
+import { Label } from "@/components/ui/label";
 import { EditProfilePage } from './EditProfilePage';
 import { Badge } from '@/components/ui/badge';
+import { BadgesDisplay } from '@/components/BadgesDisplay';
 
 interface ProfilePageProps {
   books: Book[];
 }
 
-export const ProfilePage = ({ books }: ProfilePageProps) => {
+export const ProfilePage: React.FC<ProfilePageProps> = ({ books }) => {
   const { user, userProfile } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -34,7 +36,7 @@ export const ProfilePage = ({ books }: ProfilePageProps) => {
       genresCount > 0,
       !!userProfile.readingGoal,
       (userProfile.preferredLanguages?.length || 0) > 0,
-      (userProfile.vibes?.length || 0) > 0, // Aggiunto check per le vibes
+      (userProfile.vibes?.length || 0) > 0,
   ];
   const profileCompleteness = Math.round((completenessChecks.filter(Boolean).length / completenessChecks.length) * 100);
   const goalProgress = readingGoal > 0 ? Math.min((booksReadCount / readingGoal) * 100, 100) : 0;
@@ -42,15 +44,15 @@ export const ProfilePage = ({ books }: ProfilePageProps) => {
 
   return (
     <div className="p-4 space-y-6">
-      {/* CARD PROFILO e STATS (invariata) */}
+      {/* CARD PROFILO e STATS */}
       <Card className="text-center overflow-hidden shadow-lg">
         <div className="p-6 bg-muted/30">
-           <Avatar className="h-24 w-24 mx-auto border-4" style={{borderColor: userProfile.avatarColor || '#8B5CF6'}}>
+            <Avatar className="h-24 w-24 mx-auto border-4" style={{borderColor: userProfile.avatarColor || '#8B5CF6'}}>
                 <AvatarImage src={user.photoURL || undefined} />
                 <AvatarFallback className="text-3xl font-semibold" style={{backgroundColor: userProfile.avatarColor || '#8B5CF6', color: 'white'}}>{initials}</AvatarFallback>
             </Avatar>
-            <h2 className="text-2xl font-bold mt-4">{userProfile.displayName || 'Lettore BookScan'}</h2>
-            <p className="text-muted-foreground">Membro della community BookScan AI</p>
+            <h2 className="text-2xl font-bold mt-4">{userProfile.displayName || 'Lettore BookSnap'}</h2>
+            <p className="text-muted-foreground">Membro della community BookSnap</p>
         </div>
         <div className="grid grid-cols-3 p-4 border-t">
             <div><p className="text-2xl font-bold">{booksScanned}</p><p className="text-xs text-muted-foreground">Libri Libreria</p></div>
@@ -59,7 +61,7 @@ export const ProfilePage = ({ books }: ProfilePageProps) => {
         </div>
       </Card>
 
-      {/* CARD OBIETTIVO LETTURA (invariata) */}
+      {/* CARD OBIETTIVO LETTURA */}
       <Card>
         <CardHeader><CardTitle>Obiettivo di Lettura {new Date().getFullYear()}</CardTitle></CardHeader>
         <CardContent>
@@ -69,7 +71,7 @@ export const ProfilePage = ({ books }: ProfilePageProps) => {
         </CardContent>
       </Card>
       
-      {/* CARD DNA LETTERARIO CON LA NUOVA SEZIONE VIBES */}
+      {/* CARD DNA LETTERARIO */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><BookText className="w-5 h-5 text-primary"/>Il Mio DNA Letterario</CardTitle>
@@ -83,18 +85,20 @@ export const ProfilePage = ({ books }: ProfilePageProps) => {
                 <Label className="text-muted-foreground">Generi Preferiti</Label>
                 <div className="flex flex-wrap gap-2">{userProfile.favoriteGenres && userProfile.favoriteGenres.length > 0 ? userProfile.favoriteGenres.map(g => <Badge key={g}>{g}</Badge>) : <span className="text-sm italic">Nessuno</span>}</div>
             </div>
-            {/* --- NUOVA SEZIONE VIBES IN VISUALIZZAZIONE --- */}
             <div className="space-y-2">
                 <Label className="text-muted-foreground">Vibes / Atmosfere Ricercate</Label>
                 <div className="flex flex-wrap gap-2">{userProfile.vibes && userProfile.vibes.length > 0 ? userProfile.vibes.map(v => <Badge key={v} variant="secondary">{v}</Badge>) : <span className="text-sm italic">Nessuna</span>}</div>
             </div>
         </CardContent>
       </Card>
+
+      {/* --- NUOVA SEZIONE: BADGE E TROFEI --- */}
+      <BadgesDisplay unlockedBadgeIds={userProfile.unlockedBadges || []} />
       
-      {/* DIALOGO PER LE IMPOSTAZIONI (invariato) */}
+      {/* DIALOGO PER LE IMPOSTAZIONI */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogTrigger asChild>
-             <Button variant="outline" className="w-full"><Settings className="w-4 h-4 mr-2"/>Impostazioni Profilo e Preferenze</Button>
+              <Button variant="outline" className="w-full"><Settings className="w-4 h-4 mr-2"/>Impostazioni Profilo e Preferenze</Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>

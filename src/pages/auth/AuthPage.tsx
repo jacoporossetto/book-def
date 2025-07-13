@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AuthForm } from './AuthForm'; // Importiamo il nostro nuovo componente
 import { Button } from '@/components/ui/button';
 
-const AuthPage = () => {
+export const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -76,7 +76,7 @@ const AuthPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <BookHeart className="mx-auto h-12 w-12 text-primary" />
-          <CardTitle className="text-2xl mt-4">BookScan AI</CardTitle>
+          <CardTitle className="text-2xl mt-4">BookSnap</CardTitle>
           <CardDescription>La tua libreria, potenziata dall'intelligenza artificiale.</CardDescription>
         </CardHeader>
         <CardContent>

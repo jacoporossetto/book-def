@@ -22,7 +22,7 @@ export const Header = ({ setActiveTab }: HeaderProps) => {
             <div className="container mx-auto p-4 flex justify-between items-center">
                 <div>
                     <h1 className="text-lg font-bold truncate">
-                        BookScan AI
+                        BookSnap
                     </h1>
                     <p className="text-sm text-muted-foreground">
                         Ciao, {userProfile?.displayName || user?.email}!
@@ -54,10 +54,6 @@ export const Header = ({ setActiveTab }: HeaderProps) => {
                                 <span>Esporta Dati</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setActiveTab('feedback')}>
-                                <MessageSquare className="mr-2 h-4 w-4" />
-                                <span>Invia Feedback</span>
-                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

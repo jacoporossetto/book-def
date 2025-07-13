@@ -2,8 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth"; // <-- RIGA MANCANTE
-import { getFirestore } from "firebase/firestore";    
-
+import { getFirestore, doc, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpm4q5_hifj8sbLD2ogJnwHBKqbu2QpZY",
@@ -22,3 +21,16 @@ const analytics = getAnalytics(app);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+
+
+/**
+ * Aggiorna il profilo di un utente nel database Firestore.
+ * @param {string} userId - L'ID dell'utente da aggiornare.
+ * @param {object} data - Un oggetto con i campi del profilo da aggiornare.
+ */
+export const updateUserProfile = async (userId: string, data: object) => {
+  const userDocRef = doc(db, 'users', userId);
+  // `setDoc` con `merge: true` aggiorna i campi specificati senza
+  // cancellare gli altri dati del documento.
+  await setDoc(userDocRef, data, { merge: true });
+};

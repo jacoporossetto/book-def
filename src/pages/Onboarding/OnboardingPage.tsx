@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const OnboardingPage = () => {
+export const OnboardingPage = () => {
     const { user, isProfileComplete } = useAuth();
     const navigate = useNavigate();
     const [bio, setBio] = useState('');

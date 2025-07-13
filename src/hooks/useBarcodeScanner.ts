@@ -1,53 +1,60 @@
-import { useState, useEffect, useCallback } from 'react';
-import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
+import { useCallback } from 'react';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import {
+  BrowserMultiFormatReader,
+  DecodeHintType,
+  BarcodeFormat,
+  NotFoundException,
+} from '@zxing/library';
 
-export const useBarcodeScanner = () => {
-  const [isScannerAvailable, setIsScannerAvailable] = useState(true);
-  const [isScanning, setIsScanning] = useState(false);
+/**
+ * Hook per la scansione di codici a barre tramite FOTO.
+ * Utilizza il plugin @capacitor/camera per scattare una foto e ZXing-js per analizzarla.
+ * QUESTA VERSIONE È OTTIMIZZATA PER UNA MAGGIORE PRECISIONE.
+ */
+export const usePhotoBarcodeScanner = () => {
+  // --- MODIFICA 1: Aggiungiamo più "suggerimenti" per la libreria di scansione ---
+  // Oltre ai formati, le diciamo di "impegnarsi di più" nell'analisi.
+  const hints = new Map();
+  const formats = [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A];
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+  hints.set(DecodeHintType.TRY_HARDER, true); // Chiede alla libreria di provare più a fondo
 
-  // Utilizziamo il controllo dei permessi per verificare la disponibilità.
-  // Se questo comando genera un errore, significa che il plugin non è supportato.
-  const checkScannerAvailability = useCallback(async () => {
+  const codeReader = new BrowserMultiFormatReader(hints);
+
+  const scanFromPhoto = useCallback(async (): Promise<string | null> => {
     try {
-      await BarcodeScanner.checkPermission({ force: false });
-      setIsScannerAvailable(true);
+      // --- MODIFICA 2: Miglioriamo la qualità della foto ---
+      const image = await Camera.getPhoto({
+        quality: 100, // Massima qualità
+        allowEditing: false, // Disabilitiamo l'editing per avere l'immagine originale e più grande possibile
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+      });
+
+      if (!image.webPath) {
+        // L'utente ha annullato la schermata della fotocamera.
+        return null;
+      }
+
+      // Decodifica il codice a barre dall'immagine scattata.
+      const result = await codeReader.decodeFromImage(undefined, image.webPath);
+      return result.getText();
+
     } catch (error) {
-      console.error("Scanner non pienamente supportato su questo dispositivo:", error);
-      setIsScannerAvailable(false);
+      // Gestisce sia gli errori della fotocamera sia quelli della decodifica.
+      if (error instanceof NotFoundException) {
+        console.error("Errore di decodifica: nessun codice trovato.", error);
+        throw new Error("Nessun codice a barre trovato nella foto. Prova a scattare una foto più nitida e ben illuminata.");
+      } else if (error instanceof Error && error.message.includes("User cancelled")) {
+        console.log("L'utente ha annullato la selezione della foto.");
+        return null;
+      } else {
+        console.error("Errore imprevisto durante la scansione:", error);
+        throw new Error("Si è verificato un errore durante la scansione.");
+      }
     }
-  }, []);
+  }, [codeReader]);
 
-  // Eseguiamo il controllo una sola volta
-  useEffect(() => {
-    checkScannerAvailability();
-  }, [checkScannerAvailability]);
-
-  const startScan = async (): Promise<string | null> => {
-    // Prima di scansionare, verifichiamo di nuovo i permessi, questa volta forzando la richiesta all'utente
-    const status = await BarcodeScanner.checkPermission({ force: true });
-    if (!status.granted) {
-      alert('Per usare lo scanner, devi concedere i permessi alla fotocamera dalle impostazioni del telefono.');
-      return null;
-    }
-
-    BarcodeScanner.hideBackground();
-    document.body.classList.add('barcode-scanning');
-    setIsScanning(true);
-
-    try {
-      const result = await BarcodeScanner.startScan();
-      return result.hasContent ? result.content : null;
-    } catch (error) {
-      console.log('Scansione annullata dall\'utente.');
-      return null;
-    } finally {
-      // In ogni caso, ripristiniamo l'interfaccia
-      BarcodeScanner.showBackground();
-      document.body.classList.remove('barcode-scanning');
-      setIsScanning(false);
-    }
-  };
-
-  // Restituiamo tutte le proprietà necessarie al componente BookScanner
-  return { isScannerAvailable, isScanning, checkScannerAvailability, startScan };
+  return { scanFromPhoto };
 };
