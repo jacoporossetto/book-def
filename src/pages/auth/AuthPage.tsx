@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { auth, googleProvider } from '../../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { BookHeart, Loader2 } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AuthForm } from './AuthForm'; // Importiamo il nostro nuovo componente
+import { AuthForm } from './AuthForm';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const { toast } = useToast();
 
   const handleError = (error: any) => {
@@ -27,6 +30,9 @@ export const AuthPage = () => {
         case 'auth/weak-password':
           description = "La password deve essere di almeno 6 caratteri.";
           break;
+        case 'auth/invalid-email':
+            description = "L'indirizzo email non è valido.";
+            break;
         default:
           description = "Controlla le credenziali e riprova.";
           console.error("FIREBASE ERROR:", error.code, error.message);
@@ -71,6 +77,53 @@ export const AuthPage = () => {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+        toast({ variant: "destructive", title: "Errore", description: "Per favore, inserisci la tua email." });
+        return;
+    }
+    setIsLoading(true);
+    try {
+        await sendPasswordResetEmail(auth, resetEmail);
+        toast({ title: "Email inviata!", description: "Controlla la tua casella di posta per il link di recupero." });
+        setIsResetMode(false);
+        setResetEmail("");
+    } catch (error) {
+        handleError(error);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  if (isResetMode) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+            <Card className="w-full max-w-md">
+                <CardHeader className="text-center">
+                    <BookHeart className="mx-auto h-12 w-12 text-primary" />
+                    <CardTitle className="text-2xl mt-4">Recupera Password</CardTitle>
+                    <CardDescription>Inserisci la tua email per ricevere un link e reimpostare la password.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Input
+                        type="email"
+                        placeholder="La tua email di registrazione"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        disabled={isLoading}
+                    />
+                    <Button onClick={handlePasswordReset} disabled={isLoading} className="w-full">
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Invia Link di Recupero'}
+                    </Button>
+                    <Button variant="link" className="w-full" onClick={() => setIsResetMode(false)}>
+                        Torna al Login
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
@@ -91,6 +144,9 @@ export const AuthPage = () => {
                 isLoading={isLoading} 
                 onSubmit={handleEmailLogin} 
               />
+               <Button variant="link" size="sm" className="w-full mt-2" onClick={() => setIsResetMode(true)}>
+                Password dimenticata?
+              </Button>
             </TabsContent>
             <TabsContent value="signup" className="pt-4">
               <AuthForm 

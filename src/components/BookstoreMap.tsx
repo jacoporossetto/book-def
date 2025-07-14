@@ -4,7 +4,12 @@ import { BookMarked, Navigation } from 'lucide-react';
 
 // Dati di esempio per le librerie indipendenti a Padova
 const bookstores = [
-  
+  {
+    name: "Libreria Universitaria",
+    address: "Via San Francesco, 123, Padova",
+    lat: 45.4064,
+    lng: 11.8768
+  }
 ];
 
 // Componente React per l'icona del marker, che verrà convertito in HTML
