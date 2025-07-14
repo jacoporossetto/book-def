@@ -5,7 +5,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth"; // <-- RIGA MANCANT
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCpm4q5_hifj8sbLD2ogJnwHBKqbu2QpZY",
+  apiKey: "",
   authDomain: "bookscan-3a052.firebaseapp.com",
   projectId: "bookscan-3a052",
   storageBucket: "bookscan-3a052.firebasestorage.app",
