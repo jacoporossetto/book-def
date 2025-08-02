@@ -5,10 +5,10 @@ import { BookMarked, Navigation } from 'lucide-react';
 // Dati di esempio per le librerie indipendenti a Padova
 const bookstores = [
   {
-    name: "Libreria Universitaria",
-    address: "Via San Francesco, 123, Padova",
-    lat: 45.4064,
-    lng: 11.8768
+    name: "Libreria Pangea",
+    address: "Via S. Martino e Solferino, 106, Padova",
+    lat: 45.406034693400585,
+    lng: 11.87267265281282  , 
   }
 ];
 
