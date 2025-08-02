@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 
 param(
-    [ValidateSet('frontend', 'landing', 'librerie', 'all')]
+    [ValidateSet('frontend', 'landing', 'librerie', 'biblioteche', 'all')]
     [string]$DeployType = 'all',
     
     [switch]$SkipBuild,
@@ -25,14 +25,17 @@ $Config = @{
     FrontendLocalPath = './dist/*'
     LandingLocalPath = './src/pages/Landing/*'
     LibrerieLocalPath = './librerie/*'
+    BibliotecheLocalPath = './biblioteche/*'
     
     TempFrontendPath = '/home/jaco/temp-frontend/'
     TempLandingPath = '/home/jaco/temp-landing/'
     TempLibreriePath = '/home/jaco/temp-librerie/'
+    TempBibliotechePath = '/home/jaco/temp-biblioteche/'
     
     FinalFrontendPath = '/var/www/booksnap/'
     FinalLandingPath = '/var/www/booksnap/landing/'
     FinalLibreriePath = '/var/www/booksnap/librerie/'
+    FinalBibliotechePath = '/var/www/booksnap/biblioteche/'
 }
 
 # =====================================================
@@ -253,6 +256,47 @@ echo 'Librerie deploy OK'
     return $true
 }
 
+function Deploy-Biblioteche {
+    Write-DeployLog "Deploy pagina biblioteche..." "Info"
+    
+    if (-not (Test-Path 'biblioteche/index.html')) {
+        Write-DeployLog "File biblioteche/index.html non trovato" "Error"
+        return $false
+    }
+    
+    # Prepara directory sul server
+    & ssh $Config.SSHTarget "rm -rf $($Config.TempBibliotechePath) && mkdir -p $($Config.TempBibliotechePath)"
+    
+    # Upload file
+    Write-DeployLog "Upload pagina biblioteche..." "Info"
+    & scp -r $Config.BibliotecheLocalPath "$($Config.SSHTarget):$($Config.TempBibliotechePath)"
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-DeployLog "Errore upload biblioteche" "Error"
+        return $false
+    }
+    
+    # Deploy finale
+    $deployCommand = @"
+sudo mkdir -p $($Config.FinalBibliotechePath) && 
+sudo rm -rf $($Config.FinalBibliotechePath)* && 
+sudo cp -r $($Config.TempBibliotechePath)* $($Config.FinalBibliotechePath) && 
+sudo chown -R caddy:caddy $($Config.FinalBibliotechePath) && 
+sudo chmod -R 755 $($Config.FinalBibliotechePath) && 
+rm -rf $($Config.TempBibliotechePath)* && 
+echo 'Biblioteche deploy OK'
+"@
+    
+    $result = & ssh $Config.SSHTarget $deployCommand
+    if ($LASTEXITCODE -ne 0) {
+        Write-DeployLog "Errore deploy finale biblioteche" "Error"
+        return $false
+    }
+    
+    Write-DeployLog "Deploy pagina biblioteche completato" "Success"
+    return $true
+}
+
 function Test-Deployment {
     Write-DeployLog "Verifica deploy..." "Info"
     
@@ -290,6 +334,19 @@ function Test-Deployment {
         }
         catch {
             Write-DeployLog "Pagina librerie: Errore" "Warning"
+        }
+    }
+    
+    # Test pagina biblioteche
+    if ($DeployType -in @('biblioteche', 'all')) {
+        try {
+            $response = Invoke-WebRequest -Uri 'https://booksnap.it/biblioteche/' -Method Head -TimeoutSec 10 -UseBasicParsing
+            if ($response.StatusCode -eq 200) {
+                Write-DeployLog "Pagina biblioteche: OK" "Success"
+            }
+        }
+        catch {
+            Write-DeployLog "Pagina biblioteche: Errore" "Warning"
         }
     }
     
@@ -352,6 +409,13 @@ function Main {
             }
         }
         
+        # Deploy biblioteche
+        if ($DeployType -in @('biblioteche', 'all')) {
+            if (-not (Deploy-Biblioteche)) {
+                throw "Deploy biblioteche fallito"
+            }
+        }
+        
         # Test finale
         Test-Deployment
         
@@ -368,6 +432,9 @@ function Main {
         }
         if ($DeployType -in @('librerie', 'all')) {
             Write-Host "Pagina librerie:  https://booksnap.it/librerie/" -ForegroundColor White
+        }
+        if ($DeployType -in @('biblioteche', 'all')) {
+            Write-Host "Pagina biblioteche: https://booksnap.it/biblioteche/" -ForegroundColor White
         }
         Write-Host ""
         
