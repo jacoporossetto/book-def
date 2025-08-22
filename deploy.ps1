@@ -6,7 +6,7 @@ param(
     
     [switch]$SkipBuild,
     
-    [string]$ServerIP = '93.149.220.80',
+    [string]$ServerIP = '217.154.2.235',
     
     [string]$Username = 'jaco'
 )
